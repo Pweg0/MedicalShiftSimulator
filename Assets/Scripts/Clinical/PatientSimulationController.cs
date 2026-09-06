@@ -18,6 +18,9 @@ namespace MedicalShiftSimulator.Clinical
     {
         public PatientState Patient { get; }
         public ClinicalClock Clock { get; }
+        
+        public PatientExamService Exams { get; }
+        public ClinicalTimeline Timeline { get; }
         public ClinicalEventBus Events { get; }
 
         private readonly List<DiseaseProcess> _diseases = new List<DiseaseProcess>();
@@ -34,6 +37,8 @@ namespace MedicalShiftSimulator.Clinical
             Patient = patient;
             Clock = new ClinicalClock();
             Events = new ClinicalEventBus();
+            Timeline = new ClinicalTimeline();
+            Exams = new PatientExamService(Patient, Clock, Timeline);
 
             _diseases.Add(initialDisease);
 
@@ -42,30 +47,54 @@ namespace MedicalShiftSimulator.Clinical
             Antibiotic = new AntibioticEffect();
         }
 
+        public PatientExamOrder OrderExam(string examId)
+        {
+            return Exams.Order(examId);
+        }
+
+        public void RecordEvaluation()
+        {
+            Timeline.Add(Clock.TotalSimulatedMinutes, "Avaliação", "Avaliação realizada");
+        }
+
+        public void RecordPhysicalExam(string system, string finding)
+        {
+            Timeline.Add(Clock.TotalSimulatedMinutes, "Exame físico", system + ": " + finding);
+        }
+
+
         public void GiveCrystalloidBolus(double volumeMl, double durationMinutes = 20)
         {
             _transientEffects.Add(new CrystalloidBolusEffect(volumeMl, durationMinutes));
-            Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Cristaloide",
+            
+            Timeline.Add(Clock.TotalSimulatedMinutes, "Fluido administrado", $"Cristaloide {volumeMl:F0} mL em {durationMinutes:F0} min");
+Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Cristaloide",
                 $"{volumeMl:F0} mL em {durationMinutes:F0} min"));
         }
 
         public void TitrateNorepinephrine(double delta)
         {
             Norepinephrine.Titrate(delta);
-            Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Noradrenalina",
+            
+            Timeline.Add(Clock.TotalSimulatedMinutes, "Noradrenalina", $"Noradrenalina ajustada para {Norepinephrine.Dose:F2}");
+Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Noradrenalina",
                 $"dose = {Norepinephrine.Dose:F2}"));
         }
 
         public void SetOxygenLevel(int level)
         {
             Oxygen.SetLevel(level);
-            Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Oxigênio",
+            
+            Timeline.Add(Clock.TotalSimulatedMinutes, "Oxigênio", $"Oxigênio nível {Oxygen.Level}");
+Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Oxigênio",
                 $"nível = {Oxygen.Level}"));
         }
 
         public void GiveAntibiotic()
         {
             Antibiotic.GiveDose();
+            
+            Timeline.Add(Clock.TotalSimulatedMinutes, "Medicamento administrado", "Antibiótico administrado");
             Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Antibiótico", "dose administrada"));
         }
 
@@ -94,6 +123,7 @@ namespace MedicalShiftSimulator.Clinical
 
             bool wasAlive = Patient.IsAlive;
             Patient.RecalculateVitals(deltaHours);
+            Exams.Advance();
 
             Events.Publish(new VitalsUpdatedEvent(nowMinutes, Patient.Vitals));
             CheckThresholds(nowMinutes);
