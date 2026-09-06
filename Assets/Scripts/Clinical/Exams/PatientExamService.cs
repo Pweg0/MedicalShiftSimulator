@@ -21,14 +21,30 @@ namespace MedicalShiftSimulator.Clinical
 
         public PatientExamOrder Order(string examId)
         {
-            var definition = ClinicalExamCatalog.Find(examId);
-            if (definition == null) throw new ArgumentException("Exame não cadastrado: " + examId, nameof(examId));
-
-            var order = new PatientExamOrder(definition, Patient, Clock.TotalSimulatedMinutes);
-            _orders.Add(order);
-            _timeline.Add(Clock.TotalSimulatedMinutes, "Exame solicitado", definition.DisplayName + " solicitado");
+            var order = CreateOrder(examId);
+            BeginCollection(order, false);
+            _timeline.Add(Clock.TotalSimulatedMinutes, "Exame solicitado", order.Definition.DisplayName + " solicitado");
             return order;
         }
+
+        public PatientExamOrder OrderPendingCollection(string examId)
+        {
+            return CreateOrder(examId);
+        }
+
+        public void BeginCollection(PatientExamOrder order, bool markWaitingStatus = true)
+        {
+            if (order == null || order.Patient != Patient || order.CollectionStarted || order.Status == ClinicalExamStatus.Completed)
+                return;
+
+            order.CollectionStarted = true;
+            order.CollectionDueAtMinutes = Clock.TotalSimulatedMinutes + order.Definition.CollectionMinutes;
+            order.ResultDueAtMinutes = order.CollectionDueAtMinutes + order.Definition.ProcessingMinutes;
+            if (markWaitingStatus) order.Status = ClinicalExamStatus.WaitingCollection;
+            _timeline.Add(Clock.TotalSimulatedMinutes, "Coleta iniciada", order.Definition.DisplayName);
+        }
+
+
 
         public PatientExamOrder GetLatest(string examId)
         {
@@ -46,9 +62,9 @@ namespace MedicalShiftSimulator.Clinical
             for (int i = 0; i < _orders.Count; i++)
             {
                 var order = _orders[i];
-                if (order.Status == ClinicalExamStatus.Completed) continue;
+                if (!order.CollectionStarted || order.Status == ClinicalExamStatus.Completed) continue;
 
-                if (order.Status == ClinicalExamStatus.Ordered && Clock.TotalSimulatedMinutes > order.OrderedAtMinutes)
+                if (order.Status == ClinicalExamStatus.Ordered)
                     order.Status = ClinicalExamStatus.WaitingCollection;
 
                 if (Clock.TotalSimulatedMinutes >= order.CollectionDueAtMinutes)
@@ -107,6 +123,14 @@ namespace MedicalShiftSimulator.Clinical
                 default:
                     throw new InvalidOperationException("Exame sem gerador de resultado: " + examId);
             }
+        }
+        private PatientExamOrder CreateOrder(string examId)
+        {
+            var definition = ClinicalExamCatalog.Find(examId);
+            if (definition == null) throw new ArgumentException("Exame não cadastrado: " + examId, nameof(examId));
+            var order = new PatientExamOrder(definition, Patient, Clock.TotalSimulatedMinutes);
+            _orders.Add(order);
+            return order;
         }
     }
 }

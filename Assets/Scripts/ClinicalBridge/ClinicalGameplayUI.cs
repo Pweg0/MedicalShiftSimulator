@@ -66,6 +66,7 @@ namespace MedicalShiftSimulator.ClinicalBridge
                 if (GUILayout.Button("Avaliação")) _mainTab = 0;
                 if (GUILayout.Button("Exames")) _mainTab = 1;
                 if (GUILayout.Button("Histórico")) _mainTab = 2;
+                if (GUILayout.Button("Ordens")) _mainTab = 3;
                 GUILayout.EndHorizontal();
                 GUILayout.Space(6);
             }
@@ -83,9 +84,13 @@ namespace MedicalShiftSimulator.ClinicalBridge
             {
                 DrawExams();
             }
-            else
+            else if (_mainTab == 2)
             {
                 DrawTimeline();
+            }
+            else
+            {
+                DrawOrders();
             }
 
             GUILayout.EndArea();
@@ -145,7 +150,7 @@ namespace MedicalShiftSimulator.ClinicalBridge
                 bool canOrder = order == null || order.Status == ClinicalExamStatus.Completed;
                 GUI.enabled = canOrder;
                 if (GUILayout.Button("Solicitar", GUILayout.Width(75)))
-                    _sim.Controller.OrderExam(definition.Id);
+                    _sim.Controller.Orders.PrescribeExam(definition.Id);
                 GUI.enabled = true;
                 GUILayout.EndHorizontal();
             }
@@ -155,6 +160,61 @@ namespace MedicalShiftSimulator.ClinicalBridge
             DrawInterventionsAndTime();
         }
 
+        private void DrawOrders()
+        {
+            GUILayout.Label("Prescrição / Ordens", Section);
+            GUILayout.Label("A enfermagem executa as ordens conforme prioridade e fila.");
+            GUILayout.Space(4);
+
+            var orders = _sim.Controller.Orders.Orders;
+            for (int i = 0; i < orders.Count; i++)
+            {
+                var order = orders[i];
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(order.Summary(), GUILayout.Width(185));
+                GUILayout.Label(OrderStatusText(order.Status), GUILayout.Width(105));
+                GUILayout.Label(OrderPriorityText(order.Priority), GUILayout.Width(70));
+                if (order.Status == ClinicalOrderStatus.Ordered || order.Status == ClinicalOrderStatus.Queued)
+                {
+                    if (GUILayout.Button("Cancelar", GUILayout.Width(70))) _sim.Controller.Orders.Cancel(order);
+                }
+                else
+                {
+                    GUILayout.Label(order.Status == ClinicalOrderStatus.InProgress ? "Enfermagem" : "", GUILayout.Width(70));
+                }
+                GUILayout.EndHorizontal();
+            }
+
+            if (orders.Count == 0)
+                GUILayout.Label("Nenhuma ordem prescrita.");
+
+            GUILayout.Space(8);
+            GUILayout.Label($"Terapia contínua ativa: O₂ nível {_sim.Controller.Oxygen.Level} | Noradrenalina {_sim.Controller.Norepinephrine.Dose:F2} mcg/kg/min", Section);
+            GUILayout.Label("A suspensão da noradrenalina é feita prescrevendo dose 0,00.");
+            DrawInterventionsAndTime();
+        }
+
+        private string OrderStatusText(ClinicalOrderStatus status)
+        {
+            switch (status)
+            {
+                case ClinicalOrderStatus.Ordered: return "Prescrita";
+                case ClinicalOrderStatus.Queued: return "Na fila";
+                case ClinicalOrderStatus.InProgress: return "Em execução";
+                case ClinicalOrderStatus.Completed: return "Concluída";
+                default: return "Cancelada";
+            }
+        }
+
+        private string OrderPriorityText(ClinicalOrderPriority priority)
+        {
+            switch (priority)
+            {
+                case ClinicalOrderPriority.Immediate: return "Imediata";
+                case ClinicalOrderPriority.Urgent: return "Urgente";
+                default: return "Rotina";
+            }
+        }
         private void DrawTimeline()
         {
             GUILayout.Label("Linha do tempo clínica", Section);
@@ -177,13 +237,13 @@ namespace MedicalShiftSimulator.ClinicalBridge
             GUILayout.Label("Condutas", Section);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Oxigênio"))
-                _sim.Controller.SetOxygenLevel(Mathf.Min(_sim.Controller.Oxygen.Level + 1, 2));
+                _sim.Controller.Orders.PrescribeOxygen(Mathf.Min(_sim.Controller.Oxygen.Level + 1, 2));
             if (GUILayout.Button("Cristaloide 500 mL"))
-                _sim.Controller.GiveCrystalloidBolus(500);
+                _sim.Controller.Orders.PrescribeCrystalloid(500);
             if (GUILayout.Button("Noradrenalina +0,05"))
-                _sim.Controller.TitrateNorepinephrine(0.05);
+                _sim.Controller.Orders.PrescribeNorepinephrine(_sim.Controller.Norepinephrine.Dose + 0.05);
             if (GUILayout.Button("Antibiótico"))
-                _sim.Controller.GiveAntibiotic();
+                _sim.Controller.Orders.PrescribeAntibiotic();
             GUILayout.EndHorizontal();
             GUILayout.Label($"Oxigênio: nível {_sim.Controller.Oxygen.Level} | Noradrenalina: {_sim.Controller.Norepinephrine.Dose:F2} mcg/kg/min");
 

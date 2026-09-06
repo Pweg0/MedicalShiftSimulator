@@ -89,8 +89,9 @@ public ClinicalExamResult(string examId, string displayValue, string unit, strin
         public ClinicalExamDefinition Definition { get; }
         public PatientState Patient { get; }
         public double OrderedAtMinutes { get; }
-        public double CollectionDueAtMinutes { get; }
-        public double ResultDueAtMinutes { get; }
+        public double CollectionDueAtMinutes { get; internal set; }
+        public double ResultDueAtMinutes { get; internal set; }
+        public bool CollectionStarted { get; internal set; }
         public ClinicalExamStatus Status { get; internal set; }
         public ClinicalExamResult Result { get; internal set; }
 
@@ -99,8 +100,9 @@ public ClinicalExamResult(string examId, string displayValue, string unit, strin
             Definition = definition;
             Patient = patient;
             OrderedAtMinutes = orderedAtMinutes;
-            CollectionDueAtMinutes = orderedAtMinutes + definition.CollectionMinutes;
-            ResultDueAtMinutes = CollectionDueAtMinutes + definition.ProcessingMinutes;
+            CollectionDueAtMinutes = 0;
+            ResultDueAtMinutes = 0;
+            CollectionStarted = false;
             Status = ClinicalExamStatus.Ordered;
         }
     }

@@ -20,6 +20,8 @@ namespace MedicalShiftSimulator.Clinical
         public ClinicalClock Clock { get; }
         
         public PatientExamService Exams { get; }
+
+        public ClinicalOrderService Orders { get; }
         public ClinicalTimeline Timeline { get; }
         public ClinicalEventBus Events { get; }
 
@@ -39,6 +41,7 @@ namespace MedicalShiftSimulator.Clinical
             Events = new ClinicalEventBus();
             Timeline = new ClinicalTimeline();
             Exams = new PatientExamService(Patient, Clock, Timeline);
+            Orders = new ClinicalOrderService(this);
 
             _diseases.Add(initialDisease);
 
@@ -81,6 +84,12 @@ Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Noradr
                 $"dose = {Norepinephrine.Dose:F2}"));
         }
 
+        public void SetNorepinephrineDose(double dose)
+        {
+            TitrateNorepinephrine(dose - Norepinephrine.Dose);
+        }
+
+
         public void SetOxygenLevel(int level)
         {
             Oxygen.SetLevel(level);
@@ -102,7 +111,9 @@ Events.Publish(new InterventionAppliedEvent(Clock.TotalSimulatedMinutes, "Oxigê
         {
             if (deltaMinutes <= 0 || !Patient.IsAlive) return;
 
+            Orders.Advance();
             Clock.Advance(deltaMinutes);
+            Orders.Advance();
             double deltaHours = deltaMinutes / 60.0;
             double nowMinutes = Clock.TotalSimulatedMinutes;
 
