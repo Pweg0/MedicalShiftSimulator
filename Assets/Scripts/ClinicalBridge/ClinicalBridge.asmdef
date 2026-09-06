@@ -1,0 +1,15 @@
+{
+    "name": "MedicalShiftSimulator.ClinicalBridge",
+    "rootNamespace": "MedicalShiftSimulator.ClinicalBridge",
+    "references": [
+        "MedicalShiftSimulator.Clinical"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}
